@@ -1,3 +1,7 @@
+// Whenever you visit a country add it using this app.
+// extra option from me : you can delete them all
+// as a pracise on Database module with node, express, ejs
+
 import express from "express";
 import bodyParser   from "body-parser";
 import pg from "pg"; // postgreSQL DB 
@@ -10,7 +14,7 @@ const db = new pg.Client({
   user: "postgres",
   host: "localhost",
   database: "world",
-  password: "osama2023",
+  password: "osama2023", // local data base 
   port: 5432,
 });
 
@@ -19,7 +23,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(bodyParser.json());
 
-let countries = []; 
+let countries = []; // define array
 
 // function to check visited countries
 async function checkVisitedCountries(){
@@ -38,34 +42,41 @@ app.get("/", async (req, res) => {
   res.render("index.ejs", { countries: countries, total: countries.length }); 
 }); 
 
-app.post("/add", async(req,res)=>{  
-  const countryName = (req.body.country).toLowerCase(); // from user
+// most important end point
+app.post("/add", async(req,res)=>{
+  
+  // get user Entry
+  const countryName = (req.body.country).toLowerCase();
   console.log("country Name is:"+countryName);
   
-  //send query to counties table asking for country_code by giving country_name even in small letter
+  //send query to countries table asking for country_code by giving country_name even in small letter
+  // using pipe symbol and wild car to facilitate to user choice of country 
+  // example russia  or Russia FedralRepuplic
   const result =await db.query(
     "SELECT country_code FROM countries WHERE LOWER(country_name) LIKE '%' || $1 || '%';",
-    [countryName])   
+    [countryName])
+  
+  // country exist procceed, other wise go to else statement
   if(result.rowCount > 0 ){
     console.log(result.rows[0].country_code);
     const country_code = result.rows[0].country_code;
   
     // add country_code to your data base country_visited table ... insert command
     try {
-      await db.query(`insert into visited_countries(country_code) values ($1)`,[country_code]);
-      res.redirect("/");  
-    } catch (Error) {
-    //  console.log(" >>>catch error for insert query>>>" + Error.message);
-     if(Error.message.includes("duplicate key value violates unique constraint")){
-      // console.log("country already added, please try again");
+        await db.query(`insert into visited_countries(country_code) values ($1)`,[country_code]);
+        res.redirect("/"); // inserted OK, go back to root page 
+        } catch (Error) {
+          // error means duplicate key
+          if(Error.message.includes("duplicate key value violates unique constraint")){
+            // console.log("country already added, please try again");
+            res.render("index.ejs", { countries: countries, total: countries.length,
+              error: "country already added, Please tray again !"});
+          }
+          }       
+  } else {
       res.render("index.ejs", { countries: countries, total: countries.length,
-         error: "country already added, Please tray again !"});
-     }
-    }       
-  }else {
-    res.render("index.ejs", { countries: countries, total: countries.length,
-      error: "no country found"});
-  }   
+        error: "no country found"});
+      }   
 });
 
 // delete all countries route
